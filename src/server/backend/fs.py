@@ -206,7 +206,7 @@ class FilesystemBackendStore(BackendStore):
                 f"Failed to read result, no results available for model identifier and version."
             )
 
-        available_results = _available_results()
+        available_results = _available_results(version_path)
 
         # Filter by tag, if applicable
         if tag is not None:

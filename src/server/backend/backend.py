@@ -71,7 +71,7 @@ class BackendStore:
         model_version: str,
         result_identifier: str,
         result_version: Optional[int] = None,
-    ) -> Optional[Result]:
+    ) -> Result:
         """
         Read an individual result from the backend store.
         :param model_identifier: The identifier for the model of interest
@@ -82,8 +82,8 @@ class BackendStore:
         :type result_identifier: str
         :param result_version: The (optional) version for the result
         :type result_version: Optional[int]
-        :return: The result, or `None`
-        :rtype: Optional[Result]
+        :return: The result
+        :rtype: Result
         """
         raise NotImplementedError(
             "Cannot invoke method on abstract BackendStore."
