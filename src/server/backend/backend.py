@@ -131,3 +131,82 @@ class BackendStore:
         raise NotImplementedError(
             "Cannot invoke method on abstract BackendStore."
         )
+
+    def delete_result_version(
+        self,
+        model_identifier: str,
+        model_version: str,
+        result_identifier: str,
+        result_version: int,
+    ):
+        """
+        Delete an individual result version.
+        :param model_identifier: The identifier for the model of interest
+        :type model_identifier: str
+        :param model_version: The model version string
+        :type model_version: str
+        :param result_identifier: The identifier for the result of interest
+        :type result_identifier: str
+        :param result_version: The version for the result
+        :type result_version: int
+        """
+        raise NotImplementedError(
+            "Cannot invoke method on abstract BackendStore."
+        )
+
+    def delete_result(
+        self, model_identifier: str, model_version: str, result_identifier: str
+    ):
+        """
+        Delete all versions for a result.
+        :param model_identifier: The identifier for the model of interest
+        :type model_identifier: str
+        :param model_version: The model version string
+        :type model_version: str
+        :param result_identifier: The identifier for the result of interest
+        :type result_identifier: str
+        """
+        raise NotImplementedError(
+            "Cannot invoke method on abstract BackendStore."
+        )
+
+    def delete_results(
+        self,
+        model_identifier: str,
+        model_version: str,
+        result_tag: Optional[str] = None,
+    ):
+        """
+        Delete a collection of results.
+        :param model_identifier: The identifier for the model of interest
+        :type model_identifier: str
+        :param model_version: The model version string
+        :type model_version: str
+        :param result_tag: An (optional) tag to filter results that are deleted
+        :type result_tag: Optional[str]
+        """
+        raise NotImplementedError(
+            "Cannot invoke method on abstract BackendStore."
+        )
+
+    def delete_model_version(self, model_identifier: str, model_version: str):
+        """
+        Delete all results for a model version.
+        :param model_identifier: The identifier for the model of interest
+        :type model_identifier: str
+        :param model_version: The model version string
+        :type model_version: str
+        """
+        raise NotImplementedError(
+            "Cannot invoke method on abstract BackendStore."
+        )
+
+    def delete_model(self, model_identifier: str):
+        """
+        Delete all results for a model (all versions).
+        :param model_identifier: The identifier for the model of interest
+        :type model_identifier: str
+        """
+        raise NotImplementedError(
+            "Cannot invoke method on abstract BackendStore."
+        )

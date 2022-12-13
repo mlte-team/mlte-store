@@ -92,7 +92,7 @@ class RequestModelResult(BaseModel):
 
 
 # -----------------------------------------------------------------------------
-# Routes
+# Routes: Read Results
 # -----------------------------------------------------------------------------
 
 
@@ -120,7 +120,7 @@ async def get_result(
             model_identifier, model_version, result_identifier, result_version
         )
     except RuntimeError as e:
-        raise HTTPException(status_code=404, detail=f"{e}") from None
+        raise HTTPException(status_code=404, detail=f"{e}")
     except Exception:
         raise HTTPException(status_code=500, detail="Internal server error.")
     return {"results": [result.to_json()]}
@@ -146,10 +146,15 @@ async def get_results(
             model_identifier, model_version, result_tag
         )
     except RuntimeError as e:
-        raise HTTPException(status_code=404, detail=f"{e}") from None
+        raise HTTPException(status_code=404, detail=f"{e}")
     except Exception:
         raise HTTPException(status_code=500, detail="Internal server error.")
     return {"results": [r.to_json() for r in results]}
+
+
+# -----------------------------------------------------------------------------
+# Routes: Write Results
+# -----------------------------------------------------------------------------
 
 
 @g_app.post("/result")
@@ -168,6 +173,92 @@ async def post_result(result: RequestModelResult):
             Result(data=result.data),
             result.result_tag,
         )
+    except Exception:
+        raise HTTPException(status_code=500, detail="Internal server error.")
+
+
+# -----------------------------------------------------------------------------
+# Routes: Delete Results
+# -----------------------------------------------------------------------------
+
+
+@g_app.delete("/result")
+async def delete_result(
+    model_identifier: str,
+    model_version: str,
+    result_identifier: str,
+    result_version: Optional[int],
+):
+    """
+    Delete an individual result.
+    :param model_identifier: The identifier for the model of interest
+    :type model_identifier: str
+    :param model_version: The version string for the model of interest
+    :type model_version: str
+    :param result_identifier: The identifier for the result of interest
+    :type result_identifier: str
+    :param result_version: The (optional) version identifier for the result
+    :type result_version: Optional[int]
+    """
+    fn = (
+        g_store.delete_result_version
+        if result_version is not None
+        else g_store.delete_result
+    )
+    try:
+        args = [
+            model_identifier,
+            model_version,
+            result_identifier,
+            result_version,
+        ]
+        fn(*[args for arg in args if arg is not None])
+    except RuntimeError as e:
+        raise HTTPException(status_code=404, detail=f"{e}")
+    except Exception:
+        raise HTTPException(status_code=500, detail="Internal server error.")
+
+
+@g_app.delete("/results")
+async def delete_results(
+    model_identifier: str, model_version: str, result_tag: Optional[str]
+):
+    """
+    Delete a collection of results.
+    :param model_identifier: The identifier for the model of interest
+    :type model_identifier: str
+    :param model_version: The version string for the model of interest
+    :type model_version: str
+    :param result_tag: The (optional) tag that identifies results of interest
+    :type result_tag: Optional[str]
+    """
+    try:
+        g_store.delete_results(model_identifier, model_version, result_tag)
+    except RuntimeError as e:
+        raise HTTPException(status_code=404, detail=f"{e}")
+    except Exception:
+        raise HTTPException(status_code=500, detail="Internal server error.")
+
+
+@g_app.delete("/model")
+async def delete_model(model_identifier: str, model_version: Optional[str]):
+    """
+    Delete a model (or a model version).
+    :param model_identifier: The identifier for the model of interest
+    :type model_identifier: str
+    :param model_version: The (optional) version string for the model of interest
+    :type model_version: Optional[str]
+    """
+    fn = (
+        g_store.delete_model_version
+        if model_version is not None
+        else g_store.delete_model
+    )
+    try:
+        args = [model_identifier, model_version]
+        fn(*[arg for arg in args if arg is not None])
+    except RuntimeError as e:
+        raise HTTPException(status_code=404, detail=f"{e}")
     except Exception:
         raise HTTPException(status_code=500, detail="Internal server error.")
 
