@@ -3,12 +3,15 @@ Implementation of the filesystem-based backend store.
 """
 
 import json
+from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import List, Optional, Set
 
-from .backend import BackendStore, BackendStoreURI, Result
+from ..models import ModelIdentifier, ModelMetadata, ModelVersion, Result
+from .backend import BackendStore, BackendStoreURI
 
 # A sentinel value to indicate that the latest version should be read
+# TODO(Kyle): Refactor this to something more type-safe
 LATEST_VERSION = -1
 
 """
@@ -88,6 +91,17 @@ def _available_model_versions(model_path: Path) -> Set[Path]:
     :rtype: Set[Path]
     """
     return [x for x in model_path.glob("*") if x.is_dir()]
+
+
+def _available_models(root_path: Path) -> Set[Path]:
+    """
+    Get all available models in the store.
+    :param root_path: The store root path
+    :type root_path: Path
+    :return: A collection of paths to models
+    :rtype: Set[Path]
+    """
+    return [x for x in root_path.glob("*") if x.is_dir()]
 
 
 def _read_tag(result_path: Path) -> str:
@@ -277,6 +291,39 @@ class FilesystemBackendStore(BackendStore):
                 f"Root data storage location does not exist: {self.root}."
             )
 
+    def read_model_metadata(
+        self, model_identifier: Optional[str] = None
+    ) -> List[ModelMetadata]:
+        assert self.root.exists(), "Broken precondition."
+
+        # Query all available models
+        available_models = _available_models(self.root)
+
+        if model_identifier is not None and not any(
+            m.name == model_identifier for m in available_models
+        ):
+            raise RuntimeError(
+                f"Model with identifier {model_identifier} does not exist."
+            )
+
+        # Collect results
+        results: List[ModelMetadata] = []
+        for model_path in available_models:
+            available_versions = _available_model_versions(model_path)
+            results.append(
+                ModelMetadata(
+                    identifier=ModelIdentifier(model_path.name),
+                    versions=[ModelVersion(v.name) for v in available_versions],
+                )
+            )
+
+        # Filter by queried model, if applicable
+        return (
+            [r for r in results if r.identifier.identifier == model_identifier]
+            if model_identifier is not None
+            else results
+        )
+
     def read_result(
         self,
         model_identifier: str,
@@ -328,25 +375,29 @@ class FilesystemBackendStore(BackendStore):
         return [_read_result(p, LATEST_VERSION) for p in available_results]
 
     def write_result(
-        self,
-        model_identifier: str,
-        model_version: str,
-        result_identifier: str,
-        result: Result,
-        tag: Optional[str] = None,
-    ) -> None:
+        self, model_identifier: str, model_version: str, result: Result
+    ) -> int:
         assert self.root.exists(), "Broken precondition."
+
+        # Validate the result
+        if len(result.versions) != 1:
+            # TODO(Kyle): This should be a different error type
+            raise RuntimeError(f"Must provide exactly 1 ResultVersion.")
+
         # Create model directory
         model_path = self.root / model_identifier
         if not model_path.exists():
             model_path.mkdir()
+
         # Create version directory
         version_path = model_path / model_version
         if not version_path.exists():
             version_path.mkdir()
 
-        result_path = (version_path / result_identifier).with_suffix(".json")
-        _write_result(result_path, result, tag)
+        result_path = (version_path / result.identifier).with_suffix(".json")
+        _write_result(result_path, result, result.tag)
+
+        return 1
 
     def delete_result_version(
         self,
@@ -354,7 +405,7 @@ class FilesystemBackendStore(BackendStore):
         model_version: str,
         result_identifier: str,
         result_version: int,
-    ):
+    ) -> int:
         assert self.root.exists(), "Broken precondition."
         self._check_exists(model_identifier, model_version)
 
@@ -379,9 +430,11 @@ class FilesystemBackendStore(BackendStore):
         # check to determine if this deletion must propagate
         _propagate_deleted_result(self.root / model_identifier, model_version)
 
+        return 1
+
     def delete_result(
         self, model_identifier: str, model_version: str, result_identifier: str
-    ):
+    ) -> int:
         assert self.root.exists(), "Broken precondition."
         self._check_exists(model_identifier, model_version)
 
@@ -399,12 +452,14 @@ class FilesystemBackendStore(BackendStore):
         # Result deletion may have removed last result in version
         _propagate_deleted_result(self.root / model_identifier, model_version)
 
+        return 1
+
     def delete_results(
         self,
         model_identifier: str,
         model_version: str,
         result_tag: Optional[str] = None,
-    ):
+    ) -> int:
         assert self.root.exists(), "Broken precondition."
         self._check_exists(model_identifier, model_version)
 
@@ -425,39 +480,7 @@ class FilesystemBackendStore(BackendStore):
         # Result deletion may result in removal of model version
         _propagate_deleted_result(self.root / model_identifier, model_version)
 
-    def delete_model_version(self, model_identifier: str, model_version: str):
-        self._check_exists(model_identifier, model_version)
-
-        version_path = self.root / model_identifier / model_version
-        assert version_path.exists(), "Broken invariant."
-
-        # Remove all results
-        result_paths = _available_results(version_path)
-        for path in result_paths:
-            _delete_result(path)
-
-        # Delete the version
-        version_path.rmdir()
-
-        assert not version_path.exists(), "Broken postcondition."
-
-    def delete_model(self, model_identifier: str):
-        self._check_exists(model_identifier, None)
-
-        model_path = self.root / model_identifier
-        assert model_path.exists(), "Broken invariant."
-
-        version_paths = _available_model_versions(model_path)
-        for version_path in version_paths:
-            result_paths = _available_results(version_path)
-            for result_path in result_paths:
-                _delete_result(result_path)
-
-            version_path.rmdir()
-
-        model_path.rmdir()
-
-        assert not model_path.exists(), "Broken postcondition."
+        return len(result_paths)
 
     def _check_exists(
         self, model_identifier: str, model_version: Optional[str] = None

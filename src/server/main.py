@@ -5,12 +5,16 @@ Application entry point.
 import argparse
 import logging
 import sys
-from typing import Any, Dict, Optional
+from typing import List, Optional
 
 import uvicorn
-from backend import BackendStore, Result, initialize_backend_store
+from backend import (
+    BackendStore,
+    ModelMetadata,
+    Result,
+    initialize_backend_store,
+)
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
 
 # Application exit codes
 EXIT_SUCCESS = 0
@@ -75,20 +79,57 @@ def parse_arguments():
 # Data Model
 # -----------------------------------------------------------------------------
 
-# TODO(Kyle): Move data model elsewhere
-class RequestModelResult(BaseModel):
-    """A representation of an individual result in the request model."""
+# # TODO(Kyle): Move data model elsewhere
+# class RequestModelResult(BaseModel):
+#     """A representation of an individual result in the request model."""
 
-    # Identifies the model (project) of interest
-    model_identifier: str
-    # Identifies the model version of interest (e.g. within a project)
-    model_version: str
-    # Disambiguates multiple instances of the same measurement
-    result_identifier: str
-    # Allows arbitrary grouping of results within a model context
-    result_tag: Optional[str] = None
-    # The result data
-    data: Dict[str, Any]
+#     # Identifies the model (project) of interest
+#     model_identifier: str
+#     # Identifies the model version of interest (e.g. within a project)
+#     model_version: str
+#     # Disambiguates multiple instances of the same measurement
+#     result_identifier: str
+#     # Allows arbitrary grouping of results within a model context
+#     result_tag: Optional[str] = None
+#     # The result data
+#     data: Dict[str, Any]
+
+
+# -----------------------------------------------------------------------------
+# Routes: Read Metadata
+# -----------------------------------------------------------------------------
+
+
+@g_app.get("/metadata/model")
+async def get_models():
+    """Get metadata for all existing models."""
+    try:
+        models: List[ModelMetadata] = g_store.read_model_metadata()
+    except RuntimeError as e:
+        raise HTTPException(status_code=404, detail=f"{e}")
+    except Exception:
+        raise HTTPException(status_code=500, detail="Internal server error.")
+
+    return {"models": [m.to_json() for m in models]}
+
+
+@g_app.get("/metadata/model/{model_identifier}")
+async def get_model(model_identifier: str):
+    """
+    Get metadata for a single model.
+    :param model_identifier: The identifier for the model of interest
+    :type model_identifier: str
+    """
+    try:
+        models: List[ModelMetadata] = g_store.read_model_metadata(
+            model_identifier
+        )
+        assert len(models) == 1, "Broken invariant."
+    except RuntimeError as e:
+        raise HTTPException(status_code=404, detail=f"{e}")
+    except Exception:
+        raise HTTPException(status_code=500, detail="Internal server error.")
+    return {"models": [m.to_json() for m in models]}
 
 
 # -----------------------------------------------------------------------------
@@ -96,12 +137,44 @@ class RequestModelResult(BaseModel):
 # -----------------------------------------------------------------------------
 
 
-@g_app.get("/result")
+@g_app.get(
+    "/result/{model_identifier}/{model_version}/{result_identifier}/{result_version}"
+)
+async def get_result_version(
+    model_identifier: str,
+    model_version: str,
+    result_identifier: str,
+    result_version: int,
+):
+    """
+    Get an individual result version.
+    :param model_identifier: The identifier for the model of interest
+    :type model_identifier: str
+    :param model_version: The version string for the model of interest
+    :type model_version: str
+    :param result_identifier: The identifier for the result of interest
+    :type result_identifier: str
+    :param result_version: The version identifier for the result of interest
+    :type result_version: int
+    """
+    try:
+        # Read the result from the store
+        result: Result = g_store.read_result(
+            model_identifier, model_version, result_identifier, result_version
+        )
+        assert result is not None, "Broken invariant."
+    except RuntimeError as e:
+        raise HTTPException(status_code=404, detail=f"{e}")
+    except Exception:
+        raise HTTPException(status_code=500, detail="Internal server error.")
+    return {"results": [result.to_json()]}
+
+
+@g_app.get("/result/{model_identifier}/{model_version}/{result_identifier}")
 async def get_result(
     model_identifier: str,
     model_version: str,
     result_identifier: str,
-    result_version: Optional[int] = None,
 ):
     """
     Get an individual result.
@@ -111,14 +184,13 @@ async def get_result(
     :type model_version: str
     :param result_identifier: The identifier for the result of interest
     :type result_identifier: str
-    :param result_version: The version identifier for the result of interest
-    :type result_version: Optional[int]
     """
     try:
         # Result the result from the store
-        result = g_store.read_result(
-            model_identifier, model_version, result_identifier, result_version
+        result: Result = g_store.read_result(
+            model_identifier, model_version, result_identifier
         )
+        assert result is not None, "Broken invariant."
     except RuntimeError as e:
         raise HTTPException(status_code=404, detail=f"{e}")
     except Exception:
@@ -142,7 +214,7 @@ async def get_results(
     :type result_tag: Optional[str]
     """
     try:
-        results = g_store.read_results(
+        results: List[Result] = g_store.read_results(
             model_identifier, model_version, result_tag
         )
     except RuntimeError as e:
@@ -157,8 +229,10 @@ async def get_results(
 # -----------------------------------------------------------------------------
 
 
-@g_app.post("/result")
-async def post_result(result: RequestModelResult):
+@g_app.post("/result/{model_identifier}/{model_version}")
+async def post_result(
+    model_identifier: str, model_version: str, result: Result
+):
     """
     Post a result or collection of results.
     :param result: The result to write
@@ -166,15 +240,15 @@ async def post_result(result: RequestModelResult):
     """
     try:
         # Write the result to the backend
-        g_store.write_result(
-            result.model_identifier,
-            result.model_version,
-            result.result_identifier,
-            Result(data=result.data),
-            result.result_tag,
+        written = g_store.write_result(
+            model_identifier,
+            model_version,
+            result,
         )
     except Exception:
         raise HTTPException(status_code=500, detail="Internal server error.")
+
+    return {"written": written}
 
 
 # -----------------------------------------------------------------------------
@@ -182,12 +256,45 @@ async def post_result(result: RequestModelResult):
 # -----------------------------------------------------------------------------
 
 
-@g_app.delete("/result")
-async def delete_result(
+@g_app.delete(
+    "/result/{model_identifier}/{model_version}/{result_identifier}/{result_version}"
+)
+async def delete_result_version(
     model_identifier: str,
     model_version: str,
     result_identifier: str,
-    result_version: Optional[int],
+    result_version: int,
+):
+    """
+    Delete an individual result version.
+    :param model_identifier: The identifier for the model of interest
+    :type model_identifier: str
+    :param model_version: The version string for the model of interest
+    :type model_version: str
+    :param result_identifier: The identifier for the result of interest
+    :type result_identifier: str
+    :param result_version: The version identifier for the result
+    :type result_version: int
+    """
+    try:
+        deleted = g_store.delete_result_version(
+            model_identifier, model_version, result_identifier, result_version
+        )
+        assert deleted == 1, "Broken invariant."
+    except RuntimeError as e:
+        raise HTTPException(status_code=404, detail=f"{e}")
+    except Exception:
+        raise HTTPException(status_code=500, detail="Internal server error.")
+
+    return {"deleted": deleted}
+
+
+@g_app.delete("/result/{model_identifier}/{model_version}/{result_identifier}")
+async def delete_result_version(
+    model_identifier: str,
+    model_version: str,
+    result_identifier: str,
+    result_version: int,
 ):
     """
     Delete an individual result.
@@ -197,26 +304,18 @@ async def delete_result(
     :type model_version: str
     :param result_identifier: The identifier for the result of interest
     :type result_identifier: str
-    :param result_version: The (optional) version identifier for the result
-    :type result_version: Optional[int]
     """
-    fn = (
-        g_store.delete_result_version
-        if result_version is not None
-        else g_store.delete_result
-    )
     try:
-        args = [
-            model_identifier,
-            model_version,
-            result_identifier,
-            result_version,
-        ]
-        fn(*[args for arg in args if arg is not None])
+        deleted = g_store.delete_result_version(
+            model_identifier, model_version, result_identifier, result_version
+        )
+        assert deleted == 1, "Broken invariant."
     except RuntimeError as e:
         raise HTTPException(status_code=404, detail=f"{e}")
     except Exception:
         raise HTTPException(status_code=500, detail="Internal server error.")
+
+    return {"deleted": deleted}
 
 
 @g_app.delete("/results")
@@ -233,34 +332,15 @@ async def delete_results(
     :type result_tag: Optional[str]
     """
     try:
-        g_store.delete_results(model_identifier, model_version, result_tag)
+        deleted = g_store.delete_results(
+            model_identifier, model_version, result_tag
+        )
     except RuntimeError as e:
         raise HTTPException(status_code=404, detail=f"{e}")
     except Exception:
         raise HTTPException(status_code=500, detail="Internal server error.")
 
-
-@g_app.delete("/model")
-async def delete_model(model_identifier: str, model_version: Optional[str]):
-    """
-    Delete a model (or a model version).
-    :param model_identifier: The identifier for the model of interest
-    :type model_identifier: str
-    :param model_version: The (optional) version string for the model of interest
-    :type model_version: Optional[str]
-    """
-    fn = (
-        g_store.delete_model_version
-        if model_version is not None
-        else g_store.delete_model
-    )
-    try:
-        args = [model_identifier, model_version]
-        fn(*[arg for arg in args if arg is not None])
-    except RuntimeError as e:
-        raise HTTPException(status_code=404, detail=f"{e}")
-    except Exception:
-        raise HTTPException(status_code=500, detail="Internal server error.")
+    return {"deleted": deleted}
 
 
 # -----------------------------------------------------------------------------

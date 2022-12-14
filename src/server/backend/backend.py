@@ -3,7 +3,9 @@ Backend storage interface.
 """
 
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
+
+from ..models import ModelMetadata, Result
 
 
 class StoreType(Enum):
@@ -41,29 +43,30 @@ class BackendStoreURI:
         raise RuntimeError(f"Unrecognized backend store URI: {uri}.")
 
 
-class Result:
-    """Represents an individual result that is written to and read from the backend store."""
-
-    def __init__(self, *, data: Dict[str, Any]):
-        """
-        Initialize a new Result instance.
-        :param data: The result data
-        :type data: Dict[str, Any]
-        """
-        self.data = data
-
-    def to_json(self) -> Dict[str, Any]:
-        """Serialize to JSON document."""
-        return {"data": self.data}
-
-    @staticmethod
-    def from_json(json: Dict[str, Any]):
-        """Deserialize from JSON document."""
-        return Result(data=json["data"])
-
-
 class BackendStore:
     """Represents an abstract backend store."""
+
+    # -------------------------------------------------------------------------
+    # Interface: Read Metadata
+    # -------------------------------------------------------------------------
+
+    def read_model_metadata(
+        self, model_identifier: Optional[str] = None
+    ) -> List[ModelMetadata]:
+        """
+        Read all existing model identifiers.
+        :param model_identifier: The (optional) identifier for the model of interest
+        :type model_identifier: Optional[str]
+        :return: A collection of metadata for the models of interest
+        :rtype: List[ModelMetadata]
+        """
+        raise NotImplementedError(
+            "Cannot invoke method on abstract BackendStore."
+        )
+
+    # -------------------------------------------------------------------------
+    # Interface: Read Results
+    # -------------------------------------------------------------------------
 
     def read_result(
         self,
@@ -107,30 +110,34 @@ class BackendStore:
             "Cannot invoke method on abstract BackendStore."
         )
 
+    # -------------------------------------------------------------------------
+    # Interface: Write Results
+    # -------------------------------------------------------------------------
+
     def write_result(
         self,
         model_identifier: str,
         model_version: str,
-        result_identifier: str,
         result: Result,
-        tag: Optional[str],
-    ) -> None:
+    ) -> int:
         """
         Write an individual result to the backend store.
         :param model_identifier: The identifier for the model of interest
         :type model_identifier: str
         :param model_version: The model version string
         :type model_version: str
-        :param result_identifier: The identifier for the result of interest
-        :type result_identifier: str
         :param result: The result to be written
         :type result: Result
-        :param tag: The (optional) tag to apply
-        :type tag: Optional[str]
+        :return: The number of objects written
+        :rtype: int
         """
         raise NotImplementedError(
             "Cannot invoke method on abstract BackendStore."
         )
+
+    # -------------------------------------------------------------------------
+    # Interface: Delete Results
+    # -------------------------------------------------------------------------
 
     def delete_result_version(
         self,
@@ -138,7 +145,7 @@ class BackendStore:
         model_version: str,
         result_identifier: str,
         result_version: int,
-    ):
+    ) -> int:
         """
         Delete an individual result version.
         :param model_identifier: The identifier for the model of interest
@@ -149,6 +156,8 @@ class BackendStore:
         :type result_identifier: str
         :param result_version: The version for the result
         :type result_version: int
+        :return: The number of objects deleted
+        :rtype: int
         """
         raise NotImplementedError(
             "Cannot invoke method on abstract BackendStore."
@@ -156,7 +165,7 @@ class BackendStore:
 
     def delete_result(
         self, model_identifier: str, model_version: str, result_identifier: str
-    ):
+    ) -> int:
         """
         Delete all versions for a result.
         :param model_identifier: The identifier for the model of interest
@@ -165,6 +174,8 @@ class BackendStore:
         :type model_version: str
         :param result_identifier: The identifier for the result of interest
         :type result_identifier: str
+        :return: The number of objects deleted
+        :rtype: int
         """
         raise NotImplementedError(
             "Cannot invoke method on abstract BackendStore."
@@ -175,7 +186,7 @@ class BackendStore:
         model_identifier: str,
         model_version: str,
         result_tag: Optional[str] = None,
-    ):
+    ) -> int:
         """
         Delete a collection of results.
         :param model_identifier: The identifier for the model of interest
@@ -184,28 +195,8 @@ class BackendStore:
         :type model_version: str
         :param result_tag: An (optional) tag to filter results that are deleted
         :type result_tag: Optional[str]
-        """
-        raise NotImplementedError(
-            "Cannot invoke method on abstract BackendStore."
-        )
-
-    def delete_model_version(self, model_identifier: str, model_version: str):
-        """
-        Delete all results for a model version.
-        :param model_identifier: The identifier for the model of interest
-        :type model_identifier: str
-        :param model_version: The model version string
-        :type model_version: str
-        """
-        raise NotImplementedError(
-            "Cannot invoke method on abstract BackendStore."
-        )
-
-    def delete_model(self, model_identifier: str):
-        """
-        Delete all results for a model (all versions).
-        :param model_identifier: The identifier for the model of interest
-        :type model_identifier: str
+        :return: The number of objects deleted
+        :rtype: int
         """
         raise NotImplementedError(
             "Cannot invoke method on abstract BackendStore."
