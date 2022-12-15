@@ -9,7 +9,7 @@ import pytest
 from deepdiff import DeepDiff
 
 from ..server.backend.initialize import initialize_backend_store
-from ..server.models import Result
+from ..server.backend.models import Result
 
 # -----------------------------------------------------------------------------
 # Utilities

@@ -5,7 +5,7 @@ Backend storage interface.
 from enum import Enum
 from typing import List, Optional
 
-from ..models import ModelMetadata, Result
+from .models import ModelMetadata, Result
 
 
 class StoreType(Enum):
@@ -45,6 +45,14 @@ class BackendStoreURI:
 
 class BackendStore:
     """Represents an abstract backend store."""
+
+    def __init__(self, uri: BackendStoreURI):
+        """
+        Initialize a BackendStore instance.
+        :param uri: The URI that indicates the backend of interest
+        :type uri: BackendStoreURI
+        """
+        self.uri = uri
 
     # -------------------------------------------------------------------------
     # Interface: Read Metadata

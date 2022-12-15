@@ -3,12 +3,11 @@ Implementation of the filesystem-based backend store.
 """
 
 import json
-from enum import Enum
 from pathlib import Path
 from typing import List, Optional, Set
 
-from ..models import ModelIdentifier, ModelMetadata, ModelVersion, Result
 from .backend import BackendStore, BackendStoreURI
+from .models import ModelIdentifier, ModelMetadata, ModelVersion, Result
 
 # A sentinel value to indicate that the latest version should be read
 # TODO(Kyle): Refactor this to something more type-safe
@@ -276,16 +275,16 @@ class FilesystemBackendStore(BackendStore):
     The implementation of the filesystem -based backend store.
     """
 
-    def __init__(self, *, uri: BackendStoreURI):
+    def __init__(self, uri: BackendStoreURI):
         """
         Initialize a new FilesystemBackendStore instance.
         :param uri: The URI that defines where the backend will store data
         :type uri: BackendStoreURI
         """
-        # The URI for the backend
-        self.uri = uri
+        super().__init__(uri)
+
         # The root path to the data storage location
-        self.root = _parse_root_path(uri)
+        self.root = _parse_root_path(self.uri)
         if not self.root.exists():
             raise RuntimeError(
                 f"Root data storage location does not exist: {self.root}."

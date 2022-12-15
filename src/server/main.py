@@ -8,12 +8,8 @@ import sys
 from typing import List, Optional
 
 import uvicorn
-from backend import (
-    BackendStore,
-    ModelMetadata,
-    Result,
-    initialize_backend_store,
-)
+from backend import BackendStore, initialize_backend_store
+from backend.models import ModelMetadata, Result
 from fastapi import FastAPI, HTTPException
 
 # Application exit codes
@@ -73,26 +69,6 @@ def parse_arguments():
     )
     args = parser.parse_args()
     return args.host, args.port, args.backend_store_uri, args.verbose
-
-
-# -----------------------------------------------------------------------------
-# Data Model
-# -----------------------------------------------------------------------------
-
-# # TODO(Kyle): Move data model elsewhere
-# class RequestModelResult(BaseModel):
-#     """A representation of an individual result in the request model."""
-
-#     # Identifies the model (project) of interest
-#     model_identifier: str
-#     # Identifies the model version of interest (e.g. within a project)
-#     model_version: str
-#     # Disambiguates multiple instances of the same measurement
-#     result_identifier: str
-#     # Allows arbitrary grouping of results within a model context
-#     result_tag: Optional[str] = None
-#     # The result data
-#     data: Dict[str, Any]
 
 
 # -----------------------------------------------------------------------------
