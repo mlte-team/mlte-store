@@ -5,6 +5,8 @@ Test the HTTP interface for storage server(s).
 import os
 import subprocess
 import sys
+import requests
+from requests.exceptions import ConnectionError
 from pathlib import Path
 from typing import Any, Callable, Dict, List
 
@@ -17,6 +19,14 @@ from .support_fs import (
     delete_temporary_directory,
 )
 
+# The host on which the server runs for tests
+SERVER_HOST = "localhost"
+# The port on which the server listens
+SERVER_PORT = 8080 
+
+def get(route: str):
+    """Perform a GET request on `route`."""
+    return requests.get(f"http://{SERVER_HOST}:{SERVER_PORT}{route}")
 
 class TestConfig:
     """Encapsulates all data required to parametrize a test."""
@@ -74,6 +84,14 @@ class TestConfig:
         if exitcode is not None:
             raise RuntimeError(f"Failed to start server process: {exitcode}")
 
+        while True:
+            try:
+                _ = get("/healthcheck")
+            except ConnectionError:
+                continue
+            break
+
+
         # Defer termination of the server process
         self.teardown_fns.insert(0, lambda _: process.kill())
 
@@ -102,6 +120,7 @@ class TestConfig:
         return path.resolve().as_posix()
 
 
+
 CONFIGS = [
     TestConfig(
         ["--backend-store-uri", "artifact:uri"],
@@ -112,12 +131,15 @@ CONFIGS = [
 ]
 
 
+
 @pytest.mark.parametrize("config", CONFIGS)
 def test_init(config: TestConfig):
     """Ensure that server can initialize."""
     config.setup()
     try:
         config.start()
-        # Server is running...
+        input("enter to continue")
+        # res = get("/healthcheck")
+        # assert res.status_code == 200
     finally:
         config.teardown()
