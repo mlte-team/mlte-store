@@ -270,11 +270,8 @@ async def delete_result_version(
 
 
 @g_app.delete("/result/{model_identifier}/{model_version}/{result_identifier}")
-async def delete_result_version(
-    model_identifier: str,
-    model_version: str,
-    result_identifier: str,
-    result_version: int,
+async def delete_result(
+    model_identifier: str, model_version: str, result_identifier: str
 ):
     """
     Delete an individual result.
@@ -286,8 +283,8 @@ async def delete_result_version(
     :type result_identifier: str
     """
     try:
-        deleted = g_store.delete_result_version(
-            model_identifier, model_version, result_identifier, result_version
+        deleted = g_store.delete_result(
+            model_identifier, model_version, result_identifier
         )
         assert deleted == 1, "Broken invariant."
     except RuntimeError as e:
@@ -298,9 +295,9 @@ async def delete_result_version(
     return {"deleted": deleted}
 
 
-@g_app.delete("/results")
+@g_app.delete("/result/{model_identifier}/{model_version}")
 async def delete_results(
-    model_identifier: str, model_version: str, result_tag: Optional[str]
+    model_identifier: str, model_version: str, result_tag: Optional[str] = None
 ):
     """
     Delete a collection of results.
