@@ -21,12 +21,6 @@ DEFAULT_HOST = "localhost"
 # The default port on which the server listens
 DEFAULT_PORT = 8080
 
-# Identifies the 'default' measurement, by name, for a particular model context
-DEFAULT_MEASUREMENT_IDENTIFIER = ""
-
-# The default tag applied to individual results
-DEFAULT_TAG = ""
-
 # -----------------------------------------------------------------------------
 # Global State
 # -----------------------------------------------------------------------------
@@ -75,9 +69,11 @@ def parse_arguments():
 # Routes: Healthcheck
 # -----------------------------------------------------------------------------
 
+
 @g_app.get("/healthcheck")
 async def get_healthcheck():
     return {"status": "healthy"}
+
 
 # -----------------------------------------------------------------------------
 # Routes: Read Metadata

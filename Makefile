@@ -3,7 +3,7 @@
 # Run unit tests with pytest
 .PHONY: test
 test:
-	pytest --capture=no src/test
+	pytest src/test
 
 # Format source
 .PHONY: format
