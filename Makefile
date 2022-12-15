@@ -26,8 +26,3 @@ sort:
 # Run quality assurance checks
 .PHONY: qa
 qa: sort format
-
-# TMP
-.PHONY: run
-run:
-	python src/server/main.py --backend-store-uri file:///home/turing/dev/artifact-store/storage

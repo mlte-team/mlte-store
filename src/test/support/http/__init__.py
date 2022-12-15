@@ -1,3 +1,3 @@
-from .http import TestDefinition, get
+from .http import TestDefinition, get, post, delete
 
-__all__ = ["TestDefinition", "get"]
+__all__ = ["TestDefinition", "get", "post", "delete"]

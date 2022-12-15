@@ -31,6 +31,14 @@ def get(route: str, host: str = DEFAULT_SERVER_HOST, port: int = DEFAULT_SERVER_
     """Perform a GET request on `route`."""
     return requests.get(f"http://{host}:{port}{route}")
 
+def post(route: str, json: Dict[str, Any],  host: str = DEFAULT_SERVER_HOST, port: int = DEFAULT_SERVER_PORT):
+    """Perform a POST request on `route` with `json`."""
+    return requests.post(f"http://{host}:{port}{route}", json=json)
+
+def delete(route: str, host: str = DEFAULT_SERVER_HOST, port: int = DEFAULT_SERVER_PORT):
+    """Perform a DELETE request on `route`."""
+    return requests.delete(f"http://{host}:{port}{route}")
+
 # -----------------------------------------------------------------------------
 # TestDefinition
 # -----------------------------------------------------------------------------

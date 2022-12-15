@@ -11,7 +11,7 @@ class ResultVersion(BaseModel):
     """Represents an individual result version."""
 
     # The version identifier
-    version: str
+    version: int
     # The result payload
     data: Dict[str, Any]
 

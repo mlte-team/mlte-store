@@ -178,7 +178,7 @@ async def get_result(
     return {"results": [result.to_json()]}
 
 
-@g_app.get("/results")
+@g_app.get("/result/{model_identifier}/{model_version}")
 async def get_results(
     model_identifier: str,
     model_version: str,

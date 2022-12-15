@@ -3,10 +3,12 @@ Test the HTTP interface for storage server(s).
 """
 
 from copy import deepcopy
+from typing import Any, Dict, List, Tuple
 
 import pytest
 
-from .support.http import TestDefinition, get
+from ..server.backend.models import Result
+from .support.http import TestDefinition, delete, get, post
 from .support.http.fs import (
     create_store_uri,
     create_temporary_directory,
@@ -29,6 +31,17 @@ DEFINITIONS = [
 ]
 
 
+def rjson(
+    identifier: str, tag: str, versions: List[Tuple[int, Dict[str, Any]]]
+) -> Result:
+    """Generate a result with arbitrary data."""
+    return {
+        "identifier": identifier,
+        "tag": tag,
+        "versions": [{"version": e[0], "data": e[1]} for e in versions],
+    }
+
+
 @pytest.fixture()
 def server(request):
     """A fixture to perform setup and teardown."""
@@ -48,3 +61,32 @@ def test_init(server):
 
     res = get("/healthcheck")
     assert res.status_code == 200
+
+
+@pytest.mark.parametrize("server", deepcopy(DEFINITIONS), indirect=["server"])
+def test_write(server):
+    """Ensure that write can be performed successfully."""
+    d: TestDefinition = server
+    d.start()
+
+    res = post("/result/m0/v0", json=rjson("r0", "", [(0, {"hello": "world"})]))
+    assert res.status_code == 200
+
+
+@pytest.mark.parametrize("server", deepcopy(DEFINITIONS), indirect=["server"])
+def test_read(server):
+    """Ensure that a read on empty store gives 404."""
+    d: TestDefinition = server
+    d.start()
+
+    # Read many results
+    res = get("/result/m0/v0")
+    assert res.status_code == 404
+
+    # Read individual result
+    res = get("/result/m0/v0/r0")
+    assert res.status_code == 404
+
+    # Read single version
+    res = get("/result/m0/v0/r0/0")
+    assert res.status_code == 404

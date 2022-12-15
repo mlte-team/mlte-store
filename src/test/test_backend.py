@@ -105,11 +105,12 @@ def test_write_read_latest(backend):
 
     store.write_result("m0", "v0", result_from("r0", "", [(0, {"0": "0"})]))
     store.write_result("m0", "v0", result_from("r0", "", [(0, {"1": "1"})]))
-
-    e = result_from("r0", "", [(0, {"2": "2"})])
-    store.write_result("m0", "v0", e)
+    store.write_result("m0", "v0", result_from("r0", "", [(0, {"2": "2"})]))
 
     r = store.read_result("m0", "v0", "r0")
+    e = result_from(
+        "r0", "", [(0, {"0": "0"}), (1, {"1": "1"}), (2, {"2": "2"})]
+    )
     assert equal(r, e)
 
 
@@ -121,10 +122,10 @@ def test_write_read_version(backend):
     v0 = result_from("r0", "", [(0, {"0": "0"})])
     store.write_result("m0", "v0", v0)
 
-    v1 = result_from("r0", "", [(0, {"1": "1"})])
+    v1 = result_from("r0", "", [(1, {"1": "1"})])
     store.write_result("m0", "v0", v1)
 
-    v2 = result_from("r0", "", [(0, {"2": "2"})])
+    v2 = result_from("r0", "", [(2, {"2": "2"})])
     store.write_result("m0", "v0", v2)
 
     for vid, exp in zip([0, 1, 2], [v0, v1, v2]):

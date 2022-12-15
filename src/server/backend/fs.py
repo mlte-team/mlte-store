@@ -7,7 +7,13 @@ from pathlib import Path
 from typing import List, Optional, Set
 
 from .backend import BackendStore, BackendStoreURI
-from .models import ModelIdentifier, ModelMetadata, ModelVersion, Result
+from .models import (
+    ModelIdentifier,
+    ModelMetadata,
+    ModelVersion,
+    Result,
+    ResultVersion,
+)
 
 # A sentinel value to indicate that the latest version should be read
 # TODO(Kyle): Refactor this to something more type-safe
@@ -66,8 +72,7 @@ def _available_result_versions(result_path: Path) -> Set[int]:
     """
     with open(result_path.as_posix(), "r") as f:
         document = json.load(f)
-        versions = dict(document["versions"])
-        return set(int(k) for k in versions.keys())
+        return set(e["version"] for e in document["versions"])
 
 
 def _available_results(version_path: Path) -> List[Path]:
@@ -121,29 +126,29 @@ def _read_tag(result_path: Path) -> str:
 # -----------------------------------------------------------------------------
 
 
-def _read_result(result_path: Path, version: int) -> Result:
+def _read_result(result_path: Path, version: Optional[int] = None) -> Result:
     """
     Read the data for an individual result.
     :param result_path: The path to the result
     :type result_path: Path
-    :param version: The version identifier
-    :type version: int
+    :param version: The (optional) version identifier
+    :type version: Optional[int]
     :return: The read result
     :rtype: Result
     """
     with result_path.open("r") as f:
-        document = json.load(f)
-        versions = dict(document["versions"])
-        # Compute the latest version, if necessary
-        version = (
-            max(int(k) for k in versions.keys())
-            if version == LATEST_VERSION
-            else version
-        )
-        assert version in set(
-            int(k) for k in versions.keys()
-        ), "Broken invariant."
-        return Result.from_json(versions[f"{version}"])
+        result = Result.from_json(json.load(f))
+
+    # Ensure requested version is present
+    assert (version is None) or (
+        version in set(v.version for v in result.versions)
+    ), "Broken invariant."
+
+    # Filter to only include the version of interest
+    if version is not None:
+        result.versions = [v for v in result.versions if v.version == version]
+
+    return result
 
 
 # -----------------------------------------------------------------------------
@@ -164,26 +169,22 @@ def _write_result(result_path: Path, result: Result, tag: Optional[str]):
 
         # Read existing document
         with result_path.open("r") as f:
-            document = json.load(f)
+            mutating = Result.from_json(json.load(f))
 
         # Update tag
-        document["tag"] = tag if tag is not None else ""
+        mutating.tag = tag
 
         # Update result version
-        versions = dict(document["versions"])
-        versions[f"{new_version}"] = result.to_json()
-        document["versions"] = versions
+        mutating.versions.append(
+            ResultVersion(version=new_version, data=result.versions[0].data)
+        )
 
         # Persist updates
         with result_path.open("w") as f:
-            json.dump(document, f)
+            json.dump(mutating.to_json(), f)
     else:
         with result_path.open("w") as f:
-            document = {
-                "tag": tag if tag is not None else "",
-                "versions": {"0": result.to_json()},
-            }
-            json.dump(document, f)
+            json.dump(result.to_json(), f)
 
 
 # -----------------------------------------------------------------------------
@@ -201,22 +202,22 @@ def _delete_result_version(result_path: Path, version: int):
     """
     assert result_path.exists(), "Broken precondition."
     with result_path.open("r") as f:
-        document = json.load(f)
+        result = Result.from_json(json.load(f))
 
     # Update versions data
-    versions = dict(document["versions"])
-    assert version in set(int(k) for k in versions.keys()), "Broken invariant."
-    versions = {k: v for k, v in versions.items() if k != f"{version}"}
+    assert version in set(
+        v.version for v in result.versions
+    ), "Broken invariant."
+    result.versions = [v for v in result.versions if v.version != version]
 
     # If no versions remain, delete this result
-    if len(versions) == 0:
+    if len(result.versions) == 0:
         result_path.unlink()
         return
 
     # Otherwise, versions remain, write updated content
     with result_path.open("w") as f:
-        document["versions"] = versions
-        json.dump(document, f)
+        json.dump(result.to_json(), f)
 
 
 def _delete_result(result_path: Path):
@@ -350,10 +351,7 @@ class FilesystemBackendStore(BackendStore):
                 f"Failed to read result, requested version {result_version} not found."
             )
 
-        requested_version = (
-            result_version if result_version is not None else LATEST_VERSION
-        )
-        return _read_result(result_path, requested_version)
+        return _read_result(result_path, result_version)
 
     def read_results(
         self, model_identifier: str, model_version: str, tag: Optional[str]
@@ -371,7 +369,7 @@ class FilesystemBackendStore(BackendStore):
                 p for p in available_results if _read_tag(p) == tag
             ]
 
-        return [_read_result(p, LATEST_VERSION) for p in available_results]
+        return [_read_result(p) for p in available_results]
 
     def write_result(
         self, model_identifier: str, model_version: str, result: Result
