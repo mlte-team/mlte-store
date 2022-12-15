@@ -17,11 +17,11 @@ format:
 # Sort imports
 .PHONY: sort
 sort:
-	isort -e --line-length 80 scripts/*.py
+	isort -e --profile black --line-length 80 scripts/*.py
 
-	isort -e --line-length 80 src/server/*.py
-	isort -e --line-length 80 src/server/backend/*.py
-	isort -e --line-length 80 src/test/*.py
+	isort -e --profile black --line-length 80 src/server/*.py
+	isort -e --profile black --line-length 80 src/server/backend/*.py
+	isort -e --profile black --line-length 80 src/test/*.py
 
 # Run quality assurance checks
 .PHONY: qa

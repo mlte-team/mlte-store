@@ -22,7 +22,8 @@ class ResultVersion(BaseModel):
     @staticmethod
     def from_json(json: Dict[str, Any]):
         """Deserialize from JSON object."""
-        return ResultVersion(json["version"], json["data"])
+        assert all(n in json for n in ["version", "data"]), "Broken precondition."
+        return ResultVersion(version=json["version"], data=json["data"])
 
 
 class Result(BaseModel):
@@ -46,6 +47,7 @@ class Result(BaseModel):
     @staticmethod
     def from_json(json: Dict[str, Any]):
         """Deserialize from JSON object."""
+        assert all(n in json for n in ["identifier", "tag", "versions"]), "Broken precondition."
         return Result(
             identifier=json["identifier"],
             tag=None if json["tag"] == "" else json["tag"],
